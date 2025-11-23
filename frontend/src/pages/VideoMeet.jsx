@@ -508,6 +508,7 @@ export default function VideoMeetComponent() {
                             ref={localVideoref} 
                             autoPlay 
                             muted 
+                            playsInline
                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />
                     </Box>
@@ -566,7 +567,8 @@ export default function VideoMeetComponent() {
                                     className="meetUserVideo"
                                     ref={localVideoref} 
                                     autoPlay 
-                                    muted 
+                                    muted
+                                    playsInline
                                     style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '10px', backgroundColor: '#202124' }}
                                 ></video>
                                 <span style={{position:'absolute', bottom: 10, left: 10, background:'rgba(0,0,0,0.5)', color:'white', padding:'5px 10px', borderRadius:'5px', fontSize:'12px'}}>You</span>
@@ -584,6 +586,7 @@ export default function VideoMeetComponent() {
                                             }
                                         }}
                                         autoPlay
+                                        playsInline
                                         style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '10px', backgroundColor: '#202124' }}
                                     >
                                     </video>
