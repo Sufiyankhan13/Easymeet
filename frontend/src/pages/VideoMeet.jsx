@@ -305,6 +305,7 @@ export default function VideoMeetComponent() {
         socketRef.current.on('signal', gotMessageFromServer)
 
         socketRef.current.on('connect', () => {
+            console.log("JOINING ROOM:", url);
             socketRef.current.emit('join-call', url)
             socketIdRef.current = socketRef.current.id
             setMyId(socketRef.current.id); // Save socket ID to state
