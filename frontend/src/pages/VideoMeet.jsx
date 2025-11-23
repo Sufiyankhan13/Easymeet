@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import io from "socket.io-client";
+import { useParams } from 'react-router-dom';
 import { Badge, IconButton, TextField, Box, Card, CardContent, Typography, Grid, Paper, Avatar } from '@mui/material';
 import { Button } from '@mui/material';
 import VideocamIcon from '@mui/icons-material/Videocam';
@@ -26,6 +27,7 @@ const peerConfigConnections = {
 }
 
 export default function VideoMeetComponent() {
+    const { url } = useParams();
 
     var socketRef = useRef();
     let socketIdRef = useRef();
@@ -303,7 +305,7 @@ export default function VideoMeetComponent() {
         socketRef.current.on('signal', gotMessageFromServer)
 
         socketRef.current.on('connect', () => {
-            socketRef.current.emit('join-call', window.location.href)
+            socketRef.current.emit('join-call', url)
             socketIdRef.current = socketRef.current.id
             setMyId(socketRef.current.id); // Save socket ID to state
 
