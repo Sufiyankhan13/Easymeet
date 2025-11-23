@@ -19,12 +19,25 @@ export const connectToSocket = (server) => {
 
     io.on("connection", (socket) => {
 
-        console.log("SOMETHING CONNECTED")
+        console.log("SOMETHING CONNECTED:", socket.id)
 
         socket.on("join-call", (path) => {
+            console.log(`User ${socket.id} joining room ${path}`);
+            
+            // Verify if existing admin is still active
+            if (admins[path]) {
+                const adminSocket = io.sockets.sockets.get(admins[path]);
+                if (!adminSocket) {
+                    console.log(`Admin ${admins[path]} not found for room ${path}. Resetting.`);
+                    delete admins[path];
+                    // Optionally clear connections if admin is gone, or just let this user take over
+                    // For now, we let them take over as admin, but keep other users if any
+                }
+            }
 
-            if (connections[path] === undefined || connections[path].length === 0) {
-                // First user is admin
+            if (connections[path] === undefined || connections[path].length === 0 || !admins[path]) {
+                // First user (or new admin)
+                console.log(`User ${socket.id} became ADMIN of ${path}`);
                 admins[path] = socket.id;
                 
                 if (connections[path] === undefined) {
@@ -34,30 +47,20 @@ export const connectToSocket = (server) => {
                 connections[path].push(socket.id)
                 timeOnline[socket.id] = new Date();
                 
-                // Notify they are admin
                 socket.emit("you-are-admin");
 
-                // Regular join logic (for themselves)
                 for (let a = 0; a < connections[path].length; a++) {
                     io.to(connections[path][a]).emit("user-joined", socket.id, connections[path])
                 }
             } else {
-                // Room exists
-                if (admins[path]) {
-                    // Ask admin for permission
-                    io.to(admins[path]).emit("request-to-join", socket.id);
-                    socket.emit("waiting-for-approval");
-                } else {
-                    // Fallback (no admin tracked), just join
-                    connections[path].push(socket.id)
-                    timeOnline[socket.id] = new Date();
-                    for (let a = 0; a < connections[path].length; a++) {
-                        io.to(connections[path][a]).emit("user-joined", socket.id, connections[path])
-                    }
-                }
+                // Room exists and has active admin
+                console.log(`Requesting join for ${socket.id} to Admin ${admins[path]}`);
+                
+                // Notify admin
+                io.to(admins[path]).emit("request-to-join", socket.id);
+                socket.emit("waiting-for-approval");
             }
 
-            // Send messages history if they join directly
             if (messages[path] !== undefined && connections[path].includes(socket.id)) {
                 for (let a = 0; a < messages[path].length; ++a) {
                     io.to(socket.id).emit("chat-message", messages[path][a]['data'],
@@ -66,24 +69,20 @@ export const connectToSocket = (server) => {
             }
         })
 
-        // Handle Admission
         socket.on("accept-request", (socketId, path) => {
+            console.log(`Admin ${socket.id} accepted ${socketId}`);
             if (admins[path] === socket.id) {
-                // Add the user to the room
                 if (connections[path] === undefined) connections[path] = [];
                 
                 connections[path].push(socketId);
                 timeOnline[socketId] = new Date();
 
-                // Notify user they are accepted
                 io.to(socketId).emit("request-accepted");
 
-                // Trigger join logic for everyone
                 for (let a = 0; a < connections[path].length; a++) {
                     io.to(connections[path][a]).emit("user-joined", socketId, connections[path])
                 }
                 
-                // Send messages history
                  if (messages[path] !== undefined) {
                     for (let a = 0; a < messages[path].length; ++a) {
                         io.to(socketId).emit("chat-message", messages[path][a]['data'],
@@ -94,6 +93,7 @@ export const connectToSocket = (server) => {
         });
 
         socket.on("reject-request", (socketId, path) => {
+             console.log(`Admin ${socket.id} rejected ${socketId}`);
              if (admins[path] === socket.id) {
                  io.to(socketId).emit("request-rejected");
              }
@@ -133,7 +133,7 @@ export const connectToSocket = (server) => {
         })
 
         socket.on("disconnect", () => {
-
+            console.log("DISCONNECTED:", socket.id);
             var diffTime = Math.abs(timeOnline[socket.id] - new Date())
 
             var key
@@ -155,12 +155,18 @@ export const connectToSocket = (server) => {
 
                         if (connections[key].length === 0) {
                             delete connections[key]
-                            delete admins[key] // Clean up admin
+                            delete admins[key]
                         } else {
-                            // If admin left, assign new admin
+                            // Admin Disconnect Handling
                             if (admins[key] === socket.id) {
-                                admins[key] = connections[key][0];
-                                io.to(admins[key]).emit("you-are-admin");
+                                console.log(`Admin ${socket.id} left room ${key}. Assigning new admin.`);
+                                if (connections[key].length > 0) {
+                                    admins[key] = connections[key][0];
+                                    io.to(admins[key]).emit("you-are-admin");
+                                    console.log(`New admin is ${admins[key]}`);
+                                } else {
+                                    delete admins[key];
+                                }
                             }
                         }
                     }
